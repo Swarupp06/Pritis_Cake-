@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await window.cakesLoaded;
   if (!isLoggedIn() || isAdmin()) { window.location.href = 'login.html'; return; }
   document.getElementById('clientName').textContent = DB.currentUser.name;
   document.getElementById('clientInitial').textContent = DB.currentUser.name[0];

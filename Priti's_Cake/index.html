@@ -189,10 +189,12 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="js/main.js"></script>
+<script src="js/api.js"></script>
+  <script src="js/main.js"></script>
 <script>
   // Load featured cakes
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
+    await window.cakesLoaded;
     const featured = DB.cakes.filter(c => c.tag === 'Bestseller' || c.tag === 'Popular' || c.tag === 'Premium').slice(0, 6);
     const cakes = featured.length >= 3 ? featured : DB.cakes.slice(0, 6);
     document.getElementById('featuredCakes').innerHTML = cakes.map(cake => `

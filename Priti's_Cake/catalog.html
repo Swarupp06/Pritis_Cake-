@@ -96,12 +96,14 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="js/main.js"></script>
+<script src="js/api.js"></script>
+  <script src="js/main.js"></script>
 <script>
   let currentQty = 1;
   let currentCakeId = null;
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
+      await window.cakesLoaded;
     const params = new URLSearchParams(window.location.search);
     const cat = params.get('cat');
     if (cat) {
