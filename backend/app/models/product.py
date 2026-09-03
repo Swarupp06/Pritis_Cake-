@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
 from datetime import datetime, timezone
 from app.database.base import Base
 
@@ -14,5 +14,6 @@ class Product(Base):
     prep_time = Column(String, nullable=True)
     tag = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
