@@ -54,12 +54,18 @@ function resizeImageFile(file, cb) {
 }
 
 // ===== AUTH =====
-function login(email, password) {
-  if (email === ADMIN.email && password === ADMIN.password) {
-    DB.currentUser = { email, name: ADMIN.name, role: 'admin' };
+async function login(email, password) {
+  try {
+    await window.API.login(email, password);
+    const profile = await window.API.getProfile();
+    DB.currentUser = profile;
+    await fetchCartFromAPI();
     saveData();
-    return { success: true, role: 'admin' };
+    return { success: true, role: profile.role };
+  } catch(e) {
+    return { success: false, msg: e.message };
   }
+}
   const user = DB.users.find(u => u.email === email && u.password === password);
   if (user) {
     DB.currentUser = { ...user, role: 'client' };
@@ -88,22 +94,42 @@ function isLoggedIn() { return DB.currentUser !== null; }
 function isAdmin() { return DB.currentUser && DB.currentUser.role === 'admin'; }
 
 // ===== CART =====
-function addToCart(cakeId, qty = 1) {
-  if (!isLoggedIn()) { showToast('Please login to add items to cart', 'error'); setTimeout(() => window.location.href = 'login.html', 1500); return; }
-  const cake = DB.cakes.find(c => c.id === cakeId);
-  if (!cake) return;
-  const existing = DB.cart.find(i => i.cakeId === cakeId);
-  if (existing) existing.qty += qty;
-  else DB.cart.push({ cakeId, qty, name: cake.name, price: cake.price, emoji: cake.emoji, image: cake.image || '' });
-  saveData();
-  updateCartUI();
-  showToast(`${cake.name} added to cart! 🎂`, 'success');
+async function fetchCartFromAPI() {
+  if (!isLoggedIn()) return;
+  try {
+    const data = await window.API.getCart();
+    DB.cart = data.items.map(i => ({
+      cakeId: i.product.id,
+      qty: i.quantity,
+      name: i.product.name,
+      price: i.product.price,
+      emoji: i.product.image_url?.length <= 10 ? i.product.image_url : '??',
+      image: i.product.image_url?.length > 10 ? i.product.image_url : ''
+    }));
+    updateCartUI();
+  } catch(e) {
+    console.error("Failed to load cart", e);
+  }
 }
 
-function removeFromCart(cakeId) {
-  DB.cart = DB.cart.filter(i => i.cakeId !== cakeId);
-  saveData();
-  updateCartUI();
+async function addToCart(cakeId, qty = 1) {
+  if (!isLoggedIn()) { showToast('Please login to add items to cart', 'error'); setTimeout(() => window.location.href = 'login.html', 1500); return; }
+  try {
+    await window.API.addToCart(cakeId, qty);
+    await fetchCartFromAPI();
+    showToast(Item added to cart! ??, 'success');
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function removeFromCart(cakeId) {
+  try {
+    await window.API.removeCartItem(cakeId);
+    await fetchCartFromAPI();
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
 }
 
 function getCartTotal() { return DB.cart.reduce((sum, i) => sum + (i.price * i.qty), 0); }
@@ -149,19 +175,29 @@ function toggleCart() {
   if (sidebar) sidebar.classList.toggle('open');
 }
 
-function placeOrder() {
+async function placeOrder() {
   if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return; }
-  const order = {
-    id: 'ORD' + Date.now(),
-    userId: DB.currentUser.id,
-    userName: DB.currentUser.name,
-    userEmail: DB.currentUser.email,
-    items: [...DB.cart],
-    total: getCartTotal() + 50,
-    status: 'Pending',
-    date: new Date().toLocaleDateString(),
-    time: new Date().toLocaleTimeString()
-  };
+  try {
+    const submitBtn = document.querySelector('.cart-total .btn-primary');
+    const oldText = submitBtn.textContent;
+    submitBtn.textContent = 'Placing Order...';
+    submitBtn.disabled = true;
+
+    await window.API.createOrder();
+    await fetchCartFromAPI(); // Will be empty
+    
+    toggleCart();
+    showToast('Order placed successfully! ??', 'success');
+  } catch(e) {
+    showToast(e.message, 'error');
+  } finally {
+    const submitBtn = document.querySelector('.cart-total .btn-primary');
+    if (submitBtn) {
+      submitBtn.textContent = 'Place Order ???';
+      submitBtn.disabled = false;
+    }
+  }
+};
   DB.orders.push(order);
   DB.cart = [];
   saveData();
@@ -218,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.cakesLoaded = (async function() {
   try {
     DB.cakes = await window.API.getProducts();
+    if (typeof fetchCartFromAPI === 'function') await fetchCartFromAPI();
   } catch (e) {
     console.error("Failed to load cakes from API:", e);
     DB.cakes = [];
@@ -226,3 +263,7 @@ window.cakesLoaded = (async function() {
     }
   }
 })();
+
+
+
+

@@ -25,40 +25,30 @@ function showClientSection(id) {
   if (id === 'profile') loadProfile();
 }
 
-function loadClientDashboard() {
-  const myOrders = DB.orders.filter(o => o.userId === DB.currentUser.id);
-  const spent = myOrders.reduce((s, o) => s + o.total, 0);
-  const pending = myOrders.filter(o => o.status === 'Pending' || o.status === 'Confirmed' || o.status === 'Baking').length;
+async function loadClientDashboard() {
+  try {
+    const orders = await window.API.getOrders();
+    const spent = orders.reduce((s, o) => s + o.total_amount, 0);
+    const pending = orders.filter(o => ['Pending', 'Confirmed', 'Baking'].includes(o.status)).length;
 
-  document.getElementById('myOrderCount').textContent = myOrders.length;
-  document.getElementById('mySpent').textContent = '₹' + spent.toLocaleString();
-  document.getElementById('myPending').textContent = pending;
-
-  // Recent orders
-  const tbody = document.getElementById('clientRecentOrders');
-  const recent = [...myOrders].reverse().slice(0, 5);
-  tbody.innerHTML = recent.length ? recent.map(o => `
-    <tr>
-      <td><strong>${o.id}</strong></td>
-      <td>${o.items.map(i => i.name).join(', ')}</td>
-      <td><strong>₹${o.total}</strong></td>
-      <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
-      <td>${o.date}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet. <a href="#" onclick="showClientSection(\'browse\')" style="color:#e91e8c">Browse cakes!</a></td></tr>';
-
-  // Featured cakes
-  const featGrid = document.getElementById('featuredCakesGrid');
-  if (featGrid) {
-    featGrid.innerHTML = DB.cakes.slice(0, 4).map(cake => `
-      <div class="client-cake-card" onclick="openCakeDetail(${cake.id})">
-        <div class="client-cake-img">${cakeMedia(cake)}</div>
-        <div class="client-cake-info">
-          <h4>${cake.name}</h4>
-          <div class="price">₹${cake.price}</div>
-        </div>
-      </div>
-    `).join('');
+    document.getElementById('totalSpent').textContent = '?' + spent;
+    document.getElementById('activeOrders').textContent = pending;
+    
+    const tbody = document.getElementById('recentOrdersBody');
+    tbody.innerHTML = orders.slice(0,5).length ? orders.slice(0,5).map(o => {
+      const d = new Date(o.created_at);
+      return `
+      <tr>
+        <td><strong>ORD${o.id}</strong></td>
+        <td>${d.toLocaleDateString()}</td>
+        <td>${o.items.length} items</td>
+        <td><strong>?${o.total_amount}</strong></td>
+        <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
+      </tr>
+      `;
+    }).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet. <a href="#" onclick="showClientSection(\'browse\')" style="color:#e91e8c">Browse cakes!</a></td></tr>';
+  } catch(e) {
+    console.error(e);
   }
 }
 
@@ -191,3 +181,4 @@ function saveProfile() {
 function openModal(id) { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 function toggleSidebar() { document.getElementById('dashSidebar').classList.toggle('open'); }
+

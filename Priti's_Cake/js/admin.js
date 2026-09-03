@@ -26,33 +26,30 @@ function showSection(id) {
   if (id === 'dashboard') loadDashboard();
 }
 
-function loadDashboard() {
-  const orders = DB.orders;
-  const revenue = orders.reduce((s, o) => s + o.total, 0);
-  document.getElementById('totalOrders').textContent = orders.length;
-  document.getElementById('totalRevenue').textContent = '₹' + revenue.toLocaleString();
-  document.getElementById('totalCakes').textContent = DB.cakes.length;
-  document.getElementById('totalCustomers').textContent = DB.users.length;
-
-  // Recent orders
-  const tbody = document.getElementById('recentOrdersBody');
-  const recent = [...orders].reverse().slice(0, 5);
-  tbody.innerHTML = recent.length ? recent.map(o => `
-    <tr>
-      <td><strong>${o.id}</strong></td>
-      <td>${o.userName}</td>
-      <td>${o.items.map(i => i.name).join(', ')}</td>
-      <td><strong>₹${o.total}</strong></td>
-      <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
-      <td>${o.date}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="6" style="text-align:center;color:#999;padding:30px">No orders yet</td></tr>';
-
-  // Mini chart bars
-  const chartEl = document.getElementById('miniChart');
-  if (chartEl) {
-    const heights = [40, 65, 50, 80, 60, 90, 75];
-    chartEl.innerHTML = heights.map(h => `<div class="bar" style="height:${h}%"></div>`).join('');
+async function loadDashboard() {
+  try {
+    const orders = await window.API.getOrders();
+    const revenue = orders.reduce((s, o) => s + o.total_amount, 0);
+    document.getElementById('totalOrders').textContent = orders.length;
+    document.getElementById('totalRevenue').textContent = '?' + revenue;
+    
+    // Recent orders
+    const tbody = document.getElementById('recentOrdersBody');
+    const recent = orders.slice(0, 5);
+    tbody.innerHTML = recent.length ? recent.map(o => {
+      const d = new Date(o.created_at);
+      return `
+      <tr>
+        <td><strong>ORD${o.id}</strong></td>
+        <td>User ${o.user_id}</td>
+        <td>${o.items.map(i => i.product?.name).join(', ')}</td>
+        <td><strong>?${o.total_amount}</strong></td>
+        <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
+      </tr>
+      `;
+    }).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet</td></tr>';
+  } catch(e) {
+    console.error(e);
   }
 }
 
@@ -117,7 +114,7 @@ function editCake(id) {
   openModal('cakeModal');
 }
 
-async function saveCake() {
+async async function saveCake() {
   const id = document.getElementById('editCakeId').value;
   const data = {
     name: document.getElementById('cakeName').value.trim(),
@@ -171,7 +168,7 @@ async function saveCake() {
   }
 }
 
-async function deleteCake(id) {
+function deleteCake(id) {
   if (!confirm('Delete this cake?')) return;
   try {
     await window.API.deleteProduct(id);
@@ -193,4 +190,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 function toggleSidebar() {
   document.getElementById('dashSidebar').classList.toggle('open');
 }
+
+
 
