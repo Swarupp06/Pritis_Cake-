@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.routers import auth
+from app.database.database import engine
+from app.database.base import Base
+import app.models  # This imports __init__ to register models
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -16,6 +22,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth.router)
 
 @app.get("/health")
 def health_check():
