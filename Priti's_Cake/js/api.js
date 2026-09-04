@@ -7,14 +7,14 @@ window.API = {
   },
   
   getProducts: async function() {
-    const res = await fetch(${API_BASE_URL}/products);
+    const res = await fetch(`${API_BASE_URL}/products`);
     if (!res.ok) throw new Error('Failed to fetch products');
     const data = await res.json();
     return data.map(this.mapToFrontendProduct);
   },
 
   getProduct: async function(id) {
-    const res = await fetch(${API_BASE_URL}/products/);
+    const res = await fetch(`${API_BASE_URL}/products/${id}`);
     if (!res.ok) throw new Error('Product not found');
     const data = await res.json();
     return this.mapToFrontendProduct(data);
@@ -22,11 +22,11 @@ window.API = {
 
   createProduct: async function(product) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/products, {
+    const res = await fetch(`${API_BASE_URL}/products`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': Bearer  } : {})
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify(this.mapToBackendProduct(product))
     });
@@ -40,11 +40,11 @@ window.API = {
 
   updateProduct: async function(id, product) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/products/, {
+    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': Bearer  } : {})
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify(this.mapToBackendProduct(product))
     });
@@ -58,9 +58,9 @@ window.API = {
 
   deleteProduct: async function(id) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/products/, {
+    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
       method: 'DELETE',
-      headers: { ...(token ? { 'Authorization': Bearer  } : {}) }
+      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
     });
     if (!res.ok) throw new Error('Failed to delete product');
     return true;
@@ -68,7 +68,7 @@ window.API = {
 
   // Auth
   login: async function(email, password) {
-    const res = await fetch(${API_BASE_URL}/auth/login, {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ username: email, password: password })
@@ -82,8 +82,8 @@ window.API = {
   getProfile: async function() {
     const token = this.getToken();
     if (!token) return null;
-    const res = await fetch(${API_BASE_URL}/auth/me, {
-      headers: { 'Authorization': Bearer  }
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) return null;
     return await res.json();
@@ -93,8 +93,8 @@ window.API = {
   getCart: async function() {
     const token = this.getToken();
     if (!token) return { items: [], total_price: 0 };
-    const res = await fetch(${API_BASE_URL}/cart, {
-      headers: { 'Authorization': Bearer  }
+    const res = await fetch(`${API_BASE_URL}/cart`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Failed to fetch cart');
     return await res.json();
@@ -102,11 +102,11 @@ window.API = {
 
   addToCart: async function(productId, quantity = 1) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/cart/items, {
+    const res = await fetch(`${API_BASE_URL}/cart/items`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': Bearer 
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({ product_id: productId, quantity })
     });
@@ -116,11 +116,11 @@ window.API = {
 
   updateCartItem: async function(productId, quantity) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/cart/items/, {
+    const res = await fetch(`${API_BASE_URL}/cart/items/${productId}`, {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': Bearer 
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({ quantity })
     });
@@ -130,9 +130,9 @@ window.API = {
 
   removeCartItem: async function(productId) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/cart/items/, {
+    const res = await fetch(`${API_BASE_URL}/cart/items/${productId}`, {
       method: 'DELETE',
-      headers: { 'Authorization': Bearer  }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Failed to remove item');
     return true;
@@ -141,9 +141,9 @@ window.API = {
   // Orders
   createOrder: async function() {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/orders, {
+    const res = await fetch(`${API_BASE_URL}/orders`, {
       method: 'POST',
-      headers: { 'Authorization': Bearer  }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -154,8 +154,8 @@ window.API = {
 
   getOrders: async function() {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/orders, {
-      headers: { 'Authorization': Bearer  }
+    const res = await fetch(`${API_BASE_URL}/orders`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Failed to fetch orders');
     return await res.json();
@@ -163,11 +163,11 @@ window.API = {
   
   updateOrderStatus: async function(orderId, status) {
     const token = this.getToken();
-    const res = await fetch(${API_BASE_URL}/orders//status, {
+    const res = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
       method: 'PATCH',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': Bearer 
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({ status })
     });
@@ -177,9 +177,6 @@ window.API = {
 
   // Map backend schema to frontend fields
   mapToFrontendProduct: function(backendProduct) {
-    // The backend might not store emoji, rating, reviews directly if we modified it
-    // Wait, we DO store description, prep_time, image_url.
-    // The frontend expects desc, time, emoji/image, rating, reviews.
     return {
       id: backendProduct.id,
       name: backendProduct.name,
@@ -212,4 +209,3 @@ window.API = {
     };
   }
 };
-
