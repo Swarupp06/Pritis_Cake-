@@ -76,6 +76,10 @@ async function login(email, password) {
       
       const profileData = await api.get('/auth/profile');
       if (profileData && profileData.success) {
+        // ID compatibility shim for legacy frontend modules
+        if (profileData.data && profileData.data._id) {
+          profileData.data.id = profileData.data._id;
+        }
         localStorage.setItem('pc_current_user', JSON.stringify(profileData.data));
         DB.currentUser = profileData.data;
         return { success: true, role: profileData.data.role };
@@ -133,6 +137,10 @@ async function hydrateSession() {
     try {
       const data = await api.get('/auth/profile');
       if (data && data.success) {
+        // ID compatibility shim for legacy frontend modules
+        if (data.data && data.data._id) {
+          data.data.id = data.data._id;
+        }
         localStorage.setItem('pc_current_user', JSON.stringify(data.data));
         DB.currentUser = data.data;
       }

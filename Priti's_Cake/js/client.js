@@ -176,15 +176,17 @@ function saveProfile() {
   const name = document.getElementById('editName').value.trim();
   const phone = document.getElementById('editPhone').value.trim();
   if (!name) { showToast('Name is required', 'error'); return; }
-  const userIdx = DB.users.findIndex(u => u.id === DB.currentUser.id);
-  if (userIdx !== -1) { DB.users[userIdx].name = name; DB.users[userIdx].phone = phone; }
+  // Note: Backend profile persistence is not yet implemented.
+  // Updates are strictly ephemeral session cache updates.
   DB.currentUser.name = name;
   DB.currentUser.phone = phone;
   saveData();
+  
   document.getElementById('clientName').textContent = name;
   document.getElementById('clientInitial').textContent = name[0];
   loadProfile();
-  showToast('Profile updated! ✅', 'success');
+  
+  showToast('Profile updated for this session! ✅', 'success');
 }
 
 function openModal(id) { document.getElementById(id).classList.add('active'); }
