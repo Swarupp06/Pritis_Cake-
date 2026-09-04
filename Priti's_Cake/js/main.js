@@ -68,38 +68,86 @@ function resizeImageFile(file, cb) {
 }
 
 // ===== AUTH =====
-function login(email, password) {
-  // Admin login is now handled via API.
-  // This function is for customer local fallback only.
-  const user = DB.users.find(u => u.email === email && u.password === password);
-  if (user) {
-    DB.currentUser = { ...user, role: 'client' };
-    saveData();
-    return { success: true, role: 'client' };
+async function login(email, password) {
+  try {
+    const data = await api.post('/auth/login', { email, password });
+    if (data && data.success) {
+      localStorage.setItem('pc_token', data.token);
+      
+      const profileData = await api.get('/auth/profile');
+      if (profileData && profileData.success) {
+        localStorage.setItem('pc_current_user', JSON.stringify(profileData.data));
+        DB.currentUser = profileData.data;
+        return { success: true, role: profileData.data.role };
+      }
+    }
+    return { success: false, msg: data.message || 'Invalid email or password' };
+  } catch (error) {
+    if (error.status === 401) {
+      return { success: false, msg: 'Invalid email or password.' };
+    }
+    return { success: false, msg: error.message || 'Unable to connect to the server. Please try again.' };
   }
-  return { success: false, msg: 'Invalid email or password' };
 }
 
-function register(name, email, phone, password) {
-  if (DB.users.find(u => u.email === email)) return { success: false, msg: 'Email already registered' };
-  const user = { id: Date.now(), name, email, phone, password, joinDate: new Date().toLocaleDateString() };
-  DB.users.push(user);
-  DB.currentUser = { ...user, role: 'client' };
-  saveData();
-  return { success: true };
+async function register(name, email, phone, password) {
+  try {
+    const data = await api.post('/auth/register', { name, email, password });
+    if (data && data.success) {
+      // Automatically login after successful registration
+      return await login(email, password);
+    }
+    return { success: false, msg: data.message || 'Registration failed' };
+  } catch (error) {
+    if (error.status === 409 || (error.message && error.message.toLowerCase().includes('already exists'))) {
+      return { success: false, msg: 'An account with this email already exists.' };
+    }
+    return { success: false, msg: error.message || 'Unable to connect to the server. Please try again.' };
+  }
 }
 
 function logout() {
   DB.currentUser = null;
+  localStorage.removeItem('pc_token');
+  localStorage.removeItem('pc_current_user');
+  // Optional: clear DB.cart if required, but prompt says "Do NOT clear unrelated application data such as product/cart data unless the current application explicitly requires it."
   saveData();
   window.location.href = 'login.html';
 }
 
-function isLoggedIn() { return DB.currentUser !== null; }
+function isLoggedIn() { 
+  return !!localStorage.getItem('pc_token');
+}
 function isAdmin() { 
   const apiAdmin = JSON.parse(localStorage.getItem('pc_admin') || 'null');
   const token = localStorage.getItem('pc_token');
+  // Check backend provided role first, fallback to pc_admin
+  const currentUser = JSON.parse(localStorage.getItem('pc_current_user') || 'null');
+  if (currentUser && currentUser.role === 'admin') return true;
   return !!(token && apiAdmin && apiAdmin.role === 'admin');
+}
+
+async function hydrateSession() {
+  const token = localStorage.getItem('pc_token');
+  if (token) {
+    try {
+      const data = await api.get('/auth/profile');
+      if (data && data.success) {
+        localStorage.setItem('pc_current_user', JSON.stringify(data.data));
+        DB.currentUser = data.data;
+      }
+    } catch (error) {
+      if (error.status === 401) {
+        // Invalid or expired token
+        localStorage.removeItem('pc_token');
+        localStorage.removeItem('pc_current_user');
+        DB.currentUser = null;
+      }
+    }
+  } else {
+      localStorage.removeItem('pc_current_user');
+      DB.currentUser = null;
+  }
 }
 
 // ===== CART =====
@@ -223,7 +271,8 @@ function toggleMobileNav() {
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await hydrateSession();
   updateNavAuth();
   const hamburger = document.getElementById('hamburger');
   if (hamburger) hamburger.addEventListener('click', toggleMobileNav);
