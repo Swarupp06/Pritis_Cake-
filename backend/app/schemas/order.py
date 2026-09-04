@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 from app.schemas.product import ProductResponse
 
@@ -20,7 +20,7 @@ class OrderCreate(OrderBase):
     pass # Items pulled from backend cart
 
 class OrderStatusUpdate(BaseModel):
-    status: str
+    status: Literal['Pending', 'Confirmed', 'Baking', 'Delivered', 'Cancelled']
 
 class OrderResponse(BaseModel):
     id: int
@@ -33,3 +33,4 @@ class OrderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+

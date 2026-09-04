@@ -41,8 +41,7 @@ def create_order(current_user: User = Depends(get_current_user), db: Session = D
         status="Pending"
     )
     db.add(new_order)
-    db.commit() # Commit to get order ID
-    db.refresh(new_order)
+    db.flush() # Use flush instead of commit to keep transaction atomic
     
     for oi in order_items_to_create:
         oi.order_id = new_order.id
@@ -100,3 +99,4 @@ def cancel_order(order_id: int, current_user: User = Depends(get_current_user), 
     db.commit()
     db.refresh(order)
     return order
+
