@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, products
+from app.routers import auth, products, cart, orders
 from app.database.database import engine
 from app.database.base import Base
 import app.models  # This imports __init__ to register models
@@ -25,6 +25,8 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(products.router)
+app.include_router(cart.router)
+app.include_router(orders.router)
 
 @app.get("/health")
 def health_check():

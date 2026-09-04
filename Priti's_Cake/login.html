@@ -93,11 +93,11 @@
     document.getElementById('registerForm').classList.toggle('active', tab === 'register');
   }
 
-  function handleLogin() {
+  async function handleLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     if (!email || !password) { showToast('Please fill all fields', 'error'); return; }
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.success) {
       showToast('Login successful! Redirecting...', 'success');
       setTimeout(() => {
