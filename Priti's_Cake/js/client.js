@@ -118,25 +118,33 @@ function addToCartFromDetail(cakeId) {
   closeModal('cakeDetailModal');
 }
 
-function loadClientOrders() {
-  const myOrders = [...DB.orders.filter(o => o.userId === DB.currentUser.id)].reverse();
+async function loadClientOrders() {
+  let myOrders = [];
+  try {
+    myOrders = await window.API.getOrders();
+  } catch (e) {
+    console.error(e);
+  }
+  myOrders = [...myOrders].reverse();
   const container = document.getElementById('clientOrdersList');
-  container.innerHTML = myOrders.length ? myOrders.map(o => `
+  container.innerHTML = myOrders.length ? myOrders.map(o => {
+    const d = new Date(o.created_at);
+    return `
     <div class="dash-card" style="margin-bottom:15px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
         <div>
-          <h4 style="margin-bottom:5px">${o.id}</h4>
-          <p style="color:#999;font-size:0.85rem">${o.date} at ${o.time}</p>
+          <h4 style="margin-bottom:5px">ORD${o.id}</h4>
+          <p style="color:#999;font-size:0.85rem">${d.toLocaleDateString()} at ${d.toLocaleTimeString()}</p>
         </div>
         <span class="badge badge-${o.status.toLowerCase()}">${o.status}</span>
       </div>
       <div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:10px">
-        ${o.items.map(i => `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.9rem"><span>${i.emoji} ${i.name} ×${i.qty}</span><span>₹${i.price * i.qty}</span></div>`).join('')}
-        <div style="border-top:1px solid #eee;padding-top:10px;display:flex;justify-content:space-between;font-weight:800;color:#e91e8c"><span>Total</span><span>₹${o.total}</span></div>
+        ${o.items.map(i => `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.9rem"><span>${i.product.name} × ${i.quantity}</span><span>₹${i.product.price * i.quantity}</span></div>`).join('')}
+        <div style="border-top:1px solid #eee;padding-top:10px;display:flex;justify-content:space-between;font-weight:800;color:#e91e8c"><span>Total</span><span>₹${o.total_amount}</span></div>
       </div>
       ${getStatusTimeline(o.status)}
     </div>
-  `).join('') : '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:4rem;margin-bottom:15px">📦</div><p>No orders yet!</p><button class="btn btn-primary" style="margin-top:15px" onclick="showClientSection(\'browse\')">Browse Cakes</button></div>';
+  `}).join('') : '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:4rem;margin-bottom:15px">🎂</div><p>No orders yet!</p><button class="btn btn-primary" style="margin-top:15px" onclick="showClientSection(\'browse\')">Browse Cakes</button></div>';
 }
 
 function getStatusTimeline(status) {

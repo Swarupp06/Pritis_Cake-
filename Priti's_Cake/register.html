@@ -84,7 +84,8 @@
     else if (isLoggedIn()) window.location.href = 'client-dashboard.html';
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') === 'register') switchTab('register');
+    if (params.get('tab') === 'login') switchTab('login');
+    else switchTab('register');
   });
 
   function switchTab(tab) {

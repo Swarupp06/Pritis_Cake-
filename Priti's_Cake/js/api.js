@@ -67,6 +67,19 @@ window.API = {
   },
 
   // Auth
+  register: async function(name, email, phone, password) {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, phone, password })
+    });
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to register');
+    }
+    return await res.json();
+  },
+
   login: async function(email, password) {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',

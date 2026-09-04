@@ -66,22 +66,15 @@ async function login(email, password) {
     return { success: false, msg: e.message };
   }
 }
-  const user = DB.users.find(u => u.email === email && u.password === password);
-  if (user) {
-    DB.currentUser = { ...user, role: 'client' };
-    saveData();
-    return { success: true, role: 'client' };
-  }
-  return { success: false, msg: 'Invalid email or password' };
-}
 
-function register(name, email, phone, password) {
-  if (DB.users.find(u => u.email === email)) return { success: false, msg: 'Email already registered' };
-  const user = { id: Date.now(), name, email, phone, password, joinDate: new Date().toLocaleDateString() };
-  DB.users.push(user);
-  DB.currentUser = { ...user, role: 'client' };
-  saveData();
-  return { success: true };
+async function register(name, email, phone, password) {
+  try {
+    await window.API.register(name, email, phone, password);
+    // After successful register, login the user automatically
+    return await login(email, password);
+  } catch(e) {
+    return { success: false, msg: e.message };
+  }
 }
 
 function logout() {
@@ -117,7 +110,7 @@ async function addToCart(cakeId, qty = 1) {
   try {
     await window.API.addToCart(cakeId, qty);
     await fetchCartFromAPI();
-    showToast(Item added to cart! ??, 'success');
+    showToast('Item added to cart! 🍰', 'success');
   } catch(e) {
     showToast(e.message, 'error');
   }
@@ -187,23 +180,16 @@ async function placeOrder() {
     await fetchCartFromAPI(); // Will be empty
     
     toggleCart();
-    showToast('Order placed successfully! ??', 'success');
+    showToast('Order placed successfully! 🎂', 'success');
   } catch(e) {
     showToast(e.message, 'error');
   } finally {
     const submitBtn = document.querySelector('.cart-total .btn-primary');
     if (submitBtn) {
-      submitBtn.textContent = 'Place Order ???';
+      submitBtn.textContent = 'Place Order';
       submitBtn.disabled = false;
     }
   }
-};
-  DB.orders.push(order);
-  DB.cart = [];
-  saveData();
-  updateCartUI();
-  toggleCart();
-  showToast('Order placed successfully! 🎉', 'success');
 }
 
 // ===== TOAST =====
@@ -231,7 +217,7 @@ function updateNavAuth() {
   } else {
     navBtns.innerHTML = `
       <a href="login.html" class="btn btn-outline">Login</a>
-      <a href="login.html" class="btn btn-primary">Order Now</a>
+      <a href="register.html" class="btn btn-primary">Register</a>
     `;
   }
   updateCartUI();

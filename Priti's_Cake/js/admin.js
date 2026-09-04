@@ -114,7 +114,7 @@ function editCake(id) {
   openModal('cakeModal');
 }
 
-async async function saveCake() {
+async function saveCake() {
   const id = document.getElementById('editCakeId').value;
   const data = {
     name: document.getElementById('cakeName').value.trim(),
