@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  if (window.initPromise) await window.initPromise;
   if (!isLoggedIn() || isAdmin()) { window.location.href = 'login.html'; return; }
   document.getElementById('clientName').textContent = DB.currentUser.name;
   document.getElementById('clientInitial').textContent = DB.currentUser.name[0];
@@ -50,7 +51,7 @@ function loadClientDashboard() {
   const featGrid = document.getElementById('featuredCakesGrid');
   if (featGrid) {
     featGrid.innerHTML = DB.cakes.slice(0, 4).map(cake => `
-      <div class="client-cake-card" onclick="openCakeDetail(${cake.id})">
+      <div class="client-cake-card" onclick="openCakeDetail('${cake.id}')">
         <div class="client-cake-img">${cakeMedia(cake)}</div>
         <div class="client-cake-info">
           <h4>${cake.name}</h4>
@@ -65,7 +66,7 @@ function loadBrowseCakes(filter = 'All') {
   const cakes = filter === 'All' ? DB.cakes : DB.cakes.filter(c => c.category === filter);
   const grid = document.getElementById('browseCakesGrid');
   grid.innerHTML = cakes.map(cake => `
-    <div class="client-cake-card" onclick="openCakeDetail(${cake.id})">
+    <div class="client-cake-card" onclick="openCakeDetail('${cake.id}')">
         <div class="client-cake-img">${cakeMedia(cake)}</div>
         <div class="client-cake-info">
           <h4>${cake.name}</h4>
@@ -74,7 +75,7 @@ function loadBrowseCakes(filter = 'All') {
           <div class="price">₹${cake.price}</div>
           <div style="font-size:0.75rem;color:#ffa500">⭐ ${cake.rating}</div>
         </div>
-        <button class="btn btn-primary" style="width:100%;margin-top:10px;padding:8px;font-size:0.85rem" onclick="event.stopPropagation();addToCartClient(${cake.id})">Add to Cart 🛒</button>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px;padding:8px;font-size:0.85rem" onclick="event.stopPropagation();addToCartClient('${cake.id}')">Add to Cart 🛒</button>
       </div>
     </div>
   `).join('');
@@ -109,7 +110,7 @@ function openCakeDetail(id) {
       <span class="qty-num" id="detailQty">1</span>
       <button class="qty-btn" onclick="changeQty(1)">+</button>
     </div>
-    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem" onclick="addToCartFromDetail(${cake.id})">Add to Cart 🛒</button>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem" onclick="addToCartFromDetail('${cake.id}')">Add to Cart 🛒</button>
   `;
   openModal('cakeDetailModal');
 }
