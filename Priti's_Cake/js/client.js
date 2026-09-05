@@ -209,21 +209,46 @@ function loadProfile() {
   document.getElementById('editPhone').value = u.phone || '';
 }
 
-function saveProfile() {
+let isSavingProfile = false;
+
+async function saveProfile() {
+  if (isSavingProfile) return;
   const name = document.getElementById('editName').value.trim();
   const phone = document.getElementById('editPhone').value.trim();
   if (!name) { showToast('Name is required', 'error'); return; }
-  // Note: Backend profile persistence is not yet implemented.
-  // Updates are strictly ephemeral session cache updates.
-  DB.currentUser.name = name;
-  DB.currentUser.phone = phone;
-  saveData();
-  
-  document.getElementById('clientName').textContent = name;
-  document.getElementById('clientInitial').textContent = name[0];
-  loadProfile();
-  
-  showToast('Profile updated for this session! ✅', 'success');
+
+  const btn = document.querySelector('button[onclick="saveProfile()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'Saving...';
+  }
+  isSavingProfile = true;
+
+  try {
+    const res = await api.put('/auth/profile', { name, phone });
+    if (res && res.success) {
+      DB.currentUser = res.data;
+      // Keep session cache consistent
+      localStorage.setItem('pc_current_user', JSON.stringify(DB.currentUser));
+      
+      document.getElementById('clientName').textContent = res.data.name;
+      document.getElementById('clientInitial').textContent = res.data.name[0];
+      loadProfile();
+      
+      showToast('Profile updated successfully! 🎉', 'success');
+    } else {
+      showToast('Failed to update profile.', 'error');
+    }
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    showToast(err.message || 'Failed to update profile.', 'error');
+  } finally {
+    isSavingProfile = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = 'Save Changes';
+    }
+  }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('active'); }
