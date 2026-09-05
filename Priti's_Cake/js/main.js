@@ -2,7 +2,6 @@
 const DB = {
   cakes: [],
   users: JSON.parse(localStorage.getItem('pc_users') || '[]'),
-  orders: JSON.parse(localStorage.getItem('pc_orders') || '[]'),
   cart: JSON.parse(localStorage.getItem('pc_cart') || '[]'),
   currentUser: JSON.parse(localStorage.getItem('pc_current_user') || 'null')
 };
@@ -12,7 +11,6 @@ const DB = {
 // ===== SAVE TO STORAGE =====
 function saveData() {
   localStorage.setItem('pc_users', JSON.stringify(DB.users));
-  localStorage.setItem('pc_orders', JSON.stringify(DB.orders));
   localStorage.setItem('pc_cart', JSON.stringify(DB.cart));
   localStorage.setItem('pc_current_user', JSON.stringify(DB.currentUser));
   localStorage.setItem('pc_cakes', JSON.stringify(DB.cakes));
@@ -209,10 +207,20 @@ function toggleCart() {
   if (sidebar) sidebar.classList.toggle('open');
 }
 
+let isPlacingOrder = false;
+
 async function placeOrder() {
+  if (isPlacingOrder) return;
   if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return; }
   if (!isLoggedIn()) { showToast('Please login to place an order', 'error'); return; }
   
+  const btn = document.querySelector('button[onclick="placeOrder()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'Placing...';
+  }
+  isPlacingOrder = true;
+
   try {
     const payload = {
       items: DB.cart.map(item => ({
@@ -235,6 +243,12 @@ async function placeOrder() {
     }
   } catch (err) {
     showToast(err.message || 'Failed to place order. Please try again.', 'error');
+  } finally {
+    isPlacingOrder = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = 'Place Order 🎂';
+    }
   }
 }
 

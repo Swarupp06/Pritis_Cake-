@@ -57,6 +57,7 @@ async function loadClientDashboard() {
     `).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet. <a href="#" onclick="showClientSection(\'browse\')" style="color:#e91e8c">Browse cakes!</a></td></tr>';
   } catch (err) {
     console.error("Failed to load dashboard orders:", err);
+    document.getElementById('clientRecentOrders').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:30px">Failed to load orders. Please try again later.</td></tr>';
   }
 }
   // Featured cakes
@@ -170,17 +171,28 @@ async function loadClientOrders() {
     `).join('') : '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:4rem;margin-bottom:15px">🛒</div><p>No orders yet!</p><button class="btn btn-primary" style="margin-top:15px" onclick="showClientSection(\'browse\')">Browse Cakes</button></div>';
   } catch (err) {
     console.error("Failed to load client orders:", err);
+    document.getElementById('clientOrdersList').innerHTML = '<div style="text-align:center;padding:60px;color:#c62828;"><div style="font-size:4rem;margin-bottom:15px">⚠️</div><p>Failed to load orders. Please try again later.</p></div>';
   }
 }
 
 function getStatusTimeline(status) {
-  const steps = ['Pending', 'Confirmed', 'Baking', 'Delivered'];
-  const idx = steps.indexOf(status);
+  if (status === 'Cancelled') {
+    return `<div style="margin-top:15px;text-align:center;padding:10px;background:#ffebee;color:#c62828;border-radius:8px;font-weight:bold;">Order Cancelled</div>`;
+  }
+  
+  const steps = ['Pending', 'Confirmed', 'Baking', 'Out for Delivery', 'Delivered'];
+  let displayStatus = status;
+  if (displayStatus === 'Preparing') displayStatus = 'Baking';
+  
+  const idx = steps.indexOf(displayStatus);
+  // If status is unknown, just don't highlight anything.
+  const activeIdx = idx === -1 ? -1 : idx;
+
   return `<div style="display:flex;gap:0;margin-top:10px">
     ${steps.map((s, i) => `
       <div style="flex:1;text-align:center">
-        <div style="width:28px;height:28px;border-radius:50%;background:${i <= idx ? '#e91e8c' : '#eee'};color:${i <= idx ? '#fff' : '#999'};display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:0.75rem;font-weight:700">${i + 1}</div>
-        <div style="font-size:0.7rem;margin-top:5px;color:${i <= idx ? '#e91e8c' : '#999'}">${s}</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:${i <= activeIdx ? '#e91e8c' : '#eee'};color:${i <= activeIdx ? '#fff' : '#999'};display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:0.75rem;font-weight:700">${i + 1}</div>
+        <div style="font-size:0.7rem;margin-top:5px;color:${i <= activeIdx ? '#e91e8c' : '#999'}">${s}</div>
         ${i < steps.length - 1 ? `<div style="position:relative"></div>` : ''}
       </div>
     `).join('')}
