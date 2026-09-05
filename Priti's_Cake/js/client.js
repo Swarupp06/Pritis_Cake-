@@ -25,28 +25,40 @@ function showClientSection(id) {
   if (id === 'profile') loadProfile();
 }
 
-function loadClientDashboard() {
-  const myOrders = DB.orders.filter(o => o.userId === DB.currentUser.id);
-  const spent = myOrders.reduce((s, o) => s + o.total, 0);
-  const pending = myOrders.filter(o => o.status === 'Pending' || o.status === 'Confirmed' || o.status === 'Baking').length;
+async function loadClientDashboard() {
+  try {
+    const myOrders = await api.get('/orders/my-orders');
+    const mappedOrders = myOrders.map(o => ({
+      ...o,
+      id: 'ORD' + o._id.substring(o._id.length - 6).toUpperCase(),
+      date: new Date(o.createdAt).toLocaleDateString(),
+      time: new Date(o.createdAt).toLocaleTimeString(),
+      status: o.status === 'Preparing' ? 'Baking' : o.status
+    }));
 
-  document.getElementById('myOrderCount').textContent = myOrders.length;
-  document.getElementById('mySpent').textContent = '₹' + spent.toLocaleString();
-  document.getElementById('myPending').textContent = pending;
+    const spent = mappedOrders.reduce((s, o) => s + o.total, 0);
+    const pending = mappedOrders.filter(o => o.status === 'Pending' || o.status === 'Confirmed' || o.status === 'Baking').length;
 
-  // Recent orders
-  const tbody = document.getElementById('clientRecentOrders');
-  const recent = [...myOrders].reverse().slice(0, 5);
-  tbody.innerHTML = recent.length ? recent.map(o => `
-    <tr>
-      <td><strong>${o.id}</strong></td>
-      <td>${o.items.map(i => i.name).join(', ')}</td>
-      <td><strong>₹${o.total}</strong></td>
-      <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
-      <td>${o.date}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet. <a href="#" onclick="showClientSection(\'browse\')" style="color:#e91e8c">Browse cakes!</a></td></tr>';
+    document.getElementById('myOrderCount').textContent = mappedOrders.length;
+    document.getElementById('mySpent').textContent = '₹' + spent.toLocaleString();
+    document.getElementById('myPending').textContent = pending;
 
+    // Recent orders
+    const tbody = document.getElementById('clientRecentOrders');
+    const recent = mappedOrders.slice(0, 5);
+    tbody.innerHTML = recent.length ? recent.map(o => `
+      <tr>
+        <td><strong>${o.id}</strong></td>
+        <td>${o.items.map(i => i.name).join(', ')}</td>
+        <td><strong>₹${o.total}</strong></td>
+        <td><span class="badge badge-${o.status.toLowerCase()}">${o.status}</span></td>
+        <td>${o.date}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="5" style="text-align:center;color:#999;padding:30px">No orders yet. <a href="#" onclick="showClientSection(\'browse\')" style="color:#e91e8c">Browse cakes!</a></td></tr>';
+  } catch (err) {
+    console.error("Failed to load dashboard orders:", err);
+  }
+}
   // Featured cakes
   const featGrid = document.getElementById('featuredCakesGrid');
   if (featGrid) {
@@ -128,25 +140,37 @@ function addToCartFromDetail(cakeId) {
   closeModal('cakeDetailModal');
 }
 
-function loadClientOrders() {
-  const myOrders = [...DB.orders.filter(o => o.userId === DB.currentUser.id)].reverse();
-  const container = document.getElementById('clientOrdersList');
-  container.innerHTML = myOrders.length ? myOrders.map(o => `
-    <div class="dash-card" style="margin-bottom:15px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-        <div>
-          <h4 style="margin-bottom:5px">${o.id}</h4>
-          <p style="color:#999;font-size:0.85rem">${o.date} at ${o.time}</p>
+async function loadClientOrders() {
+  try {
+    const myOrders = await api.get('/orders/my-orders');
+    const mappedOrders = myOrders.map(o => ({
+      ...o,
+      id: 'ORD' + o._id.substring(o._id.length - 6).toUpperCase(),
+      date: new Date(o.createdAt).toLocaleDateString(),
+      time: new Date(o.createdAt).toLocaleTimeString(),
+      status: o.status === 'Preparing' ? 'Baking' : o.status
+    }));
+
+    const container = document.getElementById('clientOrdersList');
+    container.innerHTML = mappedOrders.length ? mappedOrders.map(o => `
+      <div class="dash-card" style="margin-bottom:15px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+          <div>
+            <h4 style="margin-bottom:5px">${o.id}</h4>
+            <p style="color:#999;font-size:0.85rem">${o.date} at ${o.time}</p>
+          </div>
+          <span class="badge badge-${o.status.toLowerCase()}">${o.status}</span>
         </div>
-        <span class="badge badge-${o.status.toLowerCase()}">${o.status}</span>
+        <div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:10px">
+          ${o.items.map(i => `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.9rem"><span>${i.emoji || ''} ${i.name} ×${i.qty}</span><span>₹${i.price * i.qty}</span></div>`).join('')}
+          <div style="border-top:1px solid #eee;padding-top:10px;display:flex;justify-content:space-between;font-weight:800;color:#e91e8c"><span>Total</span><span>₹${o.total}</span></div>
+        </div>
+        ${getStatusTimeline(o.status)}
       </div>
-      <div style="margin:15px 0;padding:15px;background:#f8f9fa;border-radius:10px">
-        ${o.items.map(i => `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.9rem"><span>${i.emoji} ${i.name} ×${i.qty}</span><span>₹${i.price * i.qty}</span></div>`).join('')}
-        <div style="border-top:1px solid #eee;padding-top:10px;display:flex;justify-content:space-between;font-weight:800;color:#e91e8c"><span>Total</span><span>₹${o.total}</span></div>
-      </div>
-      ${getStatusTimeline(o.status)}
-    </div>
-  `).join('') : '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:4rem;margin-bottom:15px">📦</div><p>No orders yet!</p><button class="btn btn-primary" style="margin-top:15px" onclick="showClientSection(\'browse\')">Browse Cakes</button></div>';
+    `).join('') : '<div style="text-align:center;padding:60px;color:#999"><div style="font-size:4rem;margin-bottom:15px">🛒</div><p>No orders yet!</p><button class="btn btn-primary" style="margin-top:15px" onclick="showClientSection(\'browse\')">Browse Cakes</button></div>';
+  } catch (err) {
+    console.error("Failed to load client orders:", err);
+  }
 }
 
 function getStatusTimeline(status) {

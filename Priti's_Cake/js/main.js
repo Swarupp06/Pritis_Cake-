@@ -100,9 +100,10 @@ async function register(name, email, phone, password) {
 
 function logout() {
   DB.currentUser = null;
+  DB.cart = [];
   localStorage.removeItem('pc_token');
   localStorage.removeItem('pc_current_user');
-  // Optional: clear DB.cart if required, but prompt says "Do NOT clear unrelated application data such as product/cart data unless the current application explicitly requires it."
+  localStorage.removeItem('pc_cart');
   saveData();
   window.location.href = 'login.html';
 }
@@ -208,25 +209,33 @@ function toggleCart() {
   if (sidebar) sidebar.classList.toggle('open');
 }
 
-function placeOrder() {
+async function placeOrder() {
   if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return; }
-  const order = {
-    id: 'ORD' + Date.now(),
-    userId: DB.currentUser.id,
-    userName: DB.currentUser.name,
-    userEmail: DB.currentUser.email,
-    items: [...DB.cart],
-    total: getCartTotal() + 50,
-    status: 'Pending',
-    date: new Date().toLocaleDateString(),
-    time: new Date().toLocaleTimeString()
-  };
-  DB.orders.push(order);
-  DB.cart = [];
-  saveData();
-  updateCartUI();
-  toggleCart();
-  showToast('Order placed successfully! 🎉', 'success');
+  if (!isLoggedIn()) { showToast('Please login to place an order', 'error'); return; }
+  
+  try {
+    const payload = {
+      items: DB.cart.map(item => ({
+        cakeId: item.cakeId,
+        qty: item.qty
+      }))
+    };
+    
+    const res = await api.post('/orders', payload);
+    if (res && res.success) {
+      DB.cart = [];
+      saveData();
+      updateCartUI();
+      toggleCart();
+      showToast('Order placed successfully! 🎂', 'success');
+      
+      // Attempt to refresh dashboard if we are on the dashboard page
+      if (typeof loadClientDashboard === 'function') loadClientDashboard();
+      if (typeof loadClientOrders === 'function') loadClientOrders();
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to place order. Please try again.', 'error');
+  }
 }
 
 // ===== TOAST =====
