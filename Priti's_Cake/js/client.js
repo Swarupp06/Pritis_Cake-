@@ -59,7 +59,7 @@ async function loadClientDashboard() {
     console.error("Failed to load dashboard orders:", err);
     document.getElementById('clientRecentOrders').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:30px">Failed to load orders. Please try again later.</td></tr>';
   }
-}
+
   // Featured cakes
   const featGrid = document.getElementById('featuredCakesGrid');
   if (featGrid) {
