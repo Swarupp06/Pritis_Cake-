@@ -172,12 +172,12 @@
   });
   document.querySelector('.cat-filter-btn.active').style.cssText += 'background:#e91e8c;color:#fff';
 
-  function placeOrderDash() {
+  async function placeOrderDash() {
     if (DB.cart.length === 0) { showToast('Cart is empty! Add some cakes first 🎂', 'error'); return; }
-    placeOrder();
-    loadClientDashboard();
-    loadClientOrders();
-    showClientSection('orders');
+    const success = await placeOrder();
+    if (success) {
+      showClientSection('orders');
+    }
   }
 
   // Update cart summary in browse section

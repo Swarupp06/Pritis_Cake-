@@ -210,9 +210,9 @@ function toggleCart() {
 let isPlacingOrder = false;
 
 async function placeOrder() {
-  if (isPlacingOrder) return;
-  if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return; }
-  if (!isLoggedIn()) { showToast('Please login to place an order', 'error'); return; }
+  if (isPlacingOrder) return false;
+  if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return false; }
+  if (!isLoggedIn()) { showToast('Please login to place an order', 'error'); return false; }
   
   const btn = document.querySelector('button[onclick="placeOrder()"]');
   if (btn) {
@@ -240,9 +240,12 @@ async function placeOrder() {
       // Attempt to refresh dashboard if we are on the dashboard page
       if (typeof loadClientDashboard === 'function') loadClientDashboard();
       if (typeof loadClientOrders === 'function') loadClientOrders();
+      return true;
     }
+    return false;
   } catch (err) {
     showToast(err.message || 'Failed to place order. Please try again.', 'error');
+    return false;
   } finally {
     isPlacingOrder = false;
     if (btn) {
