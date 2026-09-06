@@ -182,10 +182,10 @@
 
   // Update cart summary in browse section
   const origAddToCart = addToCart;
-  function addToCart(id, qty) {
+  window.addToCart = function(id, qty) {
     origAddToCart(id, qty);
     updateDashCart();
-  }
+  };
 
   function updateDashCart() {
     const el = document.getElementById('dashCartItems');
