@@ -101,6 +101,7 @@ function logout() {
   DB.cart = [];
   localStorage.removeItem('pc_token');
   localStorage.removeItem('pc_current_user');
+  localStorage.removeItem('pc_admin');
   localStorage.removeItem('pc_cart');
   saveData();
   window.location.href = 'login.html';
@@ -112,10 +113,12 @@ function isLoggedIn() {
 function isAdmin() { 
   const apiAdmin = JSON.parse(localStorage.getItem('pc_admin') || 'null');
   const token = localStorage.getItem('pc_token');
+  if (!token) return false; // Token is strictly required
+  
   // Check backend provided role first, fallback to pc_admin
   const currentUser = JSON.parse(localStorage.getItem('pc_current_user') || 'null');
   if (currentUser && currentUser.role === 'admin') return true;
-  return !!(token && apiAdmin && apiAdmin.role === 'admin');
+  return !!(apiAdmin && apiAdmin.role === 'admin');
 }
 
 async function hydrateSession() {

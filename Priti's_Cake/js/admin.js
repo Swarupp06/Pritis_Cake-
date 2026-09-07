@@ -513,6 +513,7 @@ async function saveSettings() {
 function logout() {
   localStorage.removeItem('pc_token');
   localStorage.removeItem('pc_admin');
+  localStorage.removeItem('pc_current_user');
   window.location.href = 'admin-login.html';
 }
 
