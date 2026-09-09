@@ -2,29 +2,29 @@
 const DB = {
   cakes: [],
   users: JSON.parse(localStorage.getItem('pc_users') || '[]'),
-  orders: JSON.parse(localStorage.getItem('pc_orders') || '[]'),
   cart: JSON.parse(localStorage.getItem('pc_cart') || '[]'),
   currentUser: JSON.parse(localStorage.getItem('pc_current_user') || 'null')
 };
 
-// Admin credentials
-const ADMIN = { email: 'admin@priticake.com', password: 'admin123', name: 'Admin' };
+// Admin credentials removed
 
 // ===== SAVE TO STORAGE =====
 function saveData() {
   localStorage.setItem('pc_users', JSON.stringify(DB.users));
-  localStorage.setItem('pc_orders', JSON.stringify(DB.orders));
   localStorage.setItem('pc_cart', JSON.stringify(DB.cart));
   localStorage.setItem('pc_current_user', JSON.stringify(DB.currentUser));
-  
+  localStorage.setItem('pc_cakes', JSON.stringify(DB.cakes));
 }
 
-
+  // Load cakes asynchronously via initPromise
 
 // ===== IMAGE HELPERS =====
 // Returns the inner HTML for a cake's visual (real image or emoji fallback)
 function cakeMedia(cake) {
-  if (cake && cake.image) return `<img src="${cake.image}" alt="${cake.name}">`;
+  if (cake && cake.image) {
+    const imgUrl = cake.image.startsWith('http') ? cake.image : `http://localhost:5000${cake.image}`;
+    return `<img src="${imgUrl}" alt="${cake.name}">`;
+  }
   return (cake && cake.emoji) ? cake.emoji : '🎂';
 }
 
@@ -56,79 +56,126 @@ function resizeImageFile(file, cb) {
 // ===== AUTH =====
 async function login(email, password) {
   try {
-    await window.API.login(email, password);
-    const profile = await window.API.getProfile();
-    DB.currentUser = profile;
-    await fetchCartFromAPI();
-    saveData();
-    return { success: true, role: profile.role };
-  } catch(e) {
-    return { success: false, msg: e.message };
+    const data = await api.post('/auth/login', { email, password });
+    if (data && data.success) {
+      localStorage.setItem('pc_token', data.token);
+      
+      const profileData = await api.get('/auth/profile');
+      if (profileData && profileData.success) {
+        // ID compatibility shim for legacy frontend modules
+        if (profileData.data && profileData.data._id) {
+          profileData.data.id = profileData.data._id;
+        }
+        localStorage.setItem('pc_current_user', JSON.stringify(profileData.data));
+        DB.currentUser = profileData.data;
+        return { success: true, role: profileData.data.role };
+      }
+    }
+    return { success: false, msg: data.message || 'Invalid email or password' };
+  } catch (error) {
+    if (error.status === 401) {
+      return { success: false, msg: 'Invalid email or password.' };
+    }
+    return { success: false, msg: error.message || 'Unable to connect to the server. Please try again.' };
   }
-}
-  const user = DB.users.find(u => u.email === email && u.password === password);
-  if (user) {
-    DB.currentUser = { ...user, role: 'client' };
-    saveData();
-    return { success: true, role: 'client' };
-  }
-  return { success: false, msg: 'Invalid email or password' };
 }
 
-function register(name, email, phone, password) {
-  if (DB.users.find(u => u.email === email)) return { success: false, msg: 'Email already registered' };
-  const user = { id: Date.now(), name, email, phone, password, joinDate: new Date().toLocaleDateString() };
-  DB.users.push(user);
-  DB.currentUser = { ...user, role: 'client' };
-  saveData();
-  return { success: true };
+async function register(name, email, phone, password) {
+  try {
+    const data = await api.post('/auth/register', { name, email, password });
+    if (data && data.success) {
+      // Automatically login after successful registration
+      return await login(email, password);
+    }
+    return { success: false, msg: data.message || 'Registration failed' };
+  } catch (error) {
+    if (error.status === 409 || (error.message && error.message.toLowerCase().includes('already exists'))) {
+      return { success: false, msg: 'An account with this email already exists.' };
+    }
+    return { success: false, msg: error.message || 'Unable to connect to the server. Please try again.' };
+  }
 }
 
 function logout() {
   DB.currentUser = null;
+  DB.cart = [];
+  localStorage.removeItem('pc_token');
+  localStorage.removeItem('pc_current_user');
+  localStorage.removeItem('pc_admin');
+  localStorage.removeItem('pc_cart');
   saveData();
   window.location.href = 'login.html';
 }
 
-function isLoggedIn() { return DB.currentUser !== null; }
-function isAdmin() { return DB.currentUser && DB.currentUser.role === 'admin'; }
+function isLoggedIn() { 
+  return !!localStorage.getItem('pc_token');
+}
+function isAdmin() { 
+  const apiAdmin = JSON.parse(localStorage.getItem('pc_admin') || 'null');
+  const token = localStorage.getItem('pc_token');
+  if (!token) return false; // Token is strictly required
+  
+  // Check backend provided role first, fallback to pc_admin
+  const currentUser = JSON.parse(localStorage.getItem('pc_current_user') || 'null');
+  if (currentUser && currentUser.role === 'admin') return true;
+  return !!(apiAdmin && apiAdmin.role === 'admin');
+}
+
+async function hydrateSession() {
+  const token = localStorage.getItem('pc_token');
+  if (token) {
+    try {
+      const data = await api.get('/auth/profile');
+      if (data && data.success) {
+        // ID compatibility shim for legacy frontend modules
+        if (data.data && data.data._id) {
+          data.data.id = data.data._id;
+        }
+        localStorage.setItem('pc_current_user', JSON.stringify(data.data));
+        DB.currentUser = data.data;
+      }
+    } catch (error) {
+      if (error.status === 401) {
+        // Invalid or expired token
+        localStorage.removeItem('pc_token');
+        localStorage.removeItem('pc_current_user');
+        DB.currentUser = null;
+      }
+    }
+  } else {
+      localStorage.removeItem('pc_current_user');
+      DB.currentUser = null;
+  }
+}
 
 // ===== CART =====
-async function fetchCartFromAPI() {
-  if (!isLoggedIn()) return;
-  try {
-    const data = await window.API.getCart();
-    DB.cart = data.items.map(i => ({
-      cakeId: i.product.id,
-      qty: i.quantity,
-      name: i.product.name,
-      price: i.product.price,
-      emoji: i.product.image_url?.length <= 10 ? i.product.image_url : '??',
-      image: i.product.image_url?.length > 10 ? i.product.image_url : ''
-    }));
-    updateCartUI();
-  } catch(e) {
-    console.error("Failed to load cart", e);
-  }
-}
-
-async function addToCart(cakeId, qty = 1) {
+function addToCart(cakeId, qty = 1) {
   if (!isLoggedIn()) { showToast('Please login to add items to cart', 'error'); setTimeout(() => window.location.href = 'login.html', 1500); return; }
-  try {
-    await window.API.addToCart(cakeId, qty);
-    await fetchCartFromAPI();
-    showToast(Item added to cart! ??, 'success');
-  } catch(e) {
-    showToast(e.message, 'error');
-  }
+  const cake = DB.cakes.find(c => c.id === cakeId);
+  if (!cake) return;
+  const existing = DB.cart.find(i => i.cakeId === cakeId);
+  if (existing) existing.qty += qty;
+  else DB.cart.push({ cakeId, qty, name: cake.name, price: cake.price, emoji: cake.emoji, image: cake.image || '' });
+  saveData();
+  updateCartUI();
+  showToast(`${cake.name} added to cart! 🎂`, 'success');
 }
 
-async function removeFromCart(cakeId) {
-  try {
-    await window.API.removeCartItem(cakeId);
-    await fetchCartFromAPI();
-  } catch(e) {
-    showToast(e.message, 'error');
+function removeFromCart(cakeId) {
+  DB.cart = DB.cart.filter(i => i.cakeId !== cakeId);
+  saveData();
+  updateCartUI();
+}
+
+function decreaseQuantity(cakeId) {
+  const existing = DB.cart.find(i => i.cakeId === cakeId);
+  if (existing) {
+    existing.qty -= 1;
+    if (existing.qty <= 0) {
+      DB.cart = DB.cart.filter(i => i.cakeId !== cakeId);
+    }
+    saveData();
+    updateCartUI();
   }
 }
 
@@ -157,10 +204,15 @@ function renderCartItems() {
       <div class="cart-item-img">${item.image ? `<img src="${item.image}" alt="${item.name}">` : item.emoji}</div>
       <div class="cart-item-info">
         <h4>${item.name}</h4>
-        <div class="price">₹${item.price} × ${item.qty}</div>
+        <div class="price" style="display:flex;align-items:center;gap:8px">
+          ₹${item.price} × 
+          <button onclick="decreaseQuantity('${item.cakeId}')" style="background:#eee;border:none;border-radius:4px;padding:2px 6px;cursor:pointer">-</button>
+          <span>${item.qty}</span>
+          <button onclick="addToCart('${item.cakeId}', 1)" style="background:#eee;border:none;border-radius:4px;padding:2px 6px;cursor:pointer">+</button>
+        </div>
         <div style="font-weight:700;color:#e91e8c">₹${item.price * item.qty}</div>
       </div>
-      <button class="cart-item-remove" onclick="removeFromCart(${item.cakeId})">✕</button>
+      <button class="cart-item-remove" onclick="removeFromCart('${item.cakeId}')">×</button>
     </div>
   `).join('');
   const subtotal = getCartTotal();
@@ -175,35 +227,52 @@ function toggleCart() {
   if (sidebar) sidebar.classList.toggle('open');
 }
 
-async function placeOrder() {
-  if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return; }
-  try {
-    const submitBtn = document.querySelector('.cart-total .btn-primary');
-    const oldText = submitBtn.textContent;
-    submitBtn.textContent = 'Placing Order...';
-    submitBtn.disabled = true;
+let isPlacingOrder = false;
 
-    await window.API.createOrder();
-    await fetchCartFromAPI(); // Will be empty
+async function placeOrder() {
+  if (isPlacingOrder) return false;
+  if (DB.cart.length === 0) { showToast('Cart is empty!', 'error'); return false; }
+  if (!isLoggedIn()) { showToast('Please login to place an order', 'error'); return false; }
+  
+  const btn = document.querySelector('button[onclick="placeOrder()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'Placing...';
+  }
+  isPlacingOrder = true;
+
+  try {
+    const payload = {
+      items: DB.cart.map(item => ({
+        cakeId: item.cakeId,
+        qty: item.qty
+      }))
+    };
     
-    toggleCart();
-    showToast('Order placed successfully! ??', 'success');
-  } catch(e) {
-    showToast(e.message, 'error');
+    const res = await api.post('/orders', payload);
+    if (res && res.success) {
+      DB.cart = [];
+      saveData();
+      updateCartUI();
+      toggleCart();
+      showToast('Order placed successfully! 🎂', 'success');
+      
+      // Attempt to refresh dashboard if we are on the dashboard page
+      if (typeof loadClientDashboard === 'function') loadClientDashboard();
+      if (typeof loadClientOrders === 'function') loadClientOrders();
+      return true;
+    }
+    return false;
+  } catch (err) {
+    showToast(err.message || 'Failed to place order. Please try again.', 'error');
+    return false;
   } finally {
-    const submitBtn = document.querySelector('.cart-total .btn-primary');
-    if (submitBtn) {
-      submitBtn.textContent = 'Place Order ???';
-      submitBtn.disabled = false;
+    isPlacingOrder = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = 'Place Order 🎂';
     }
   }
-};
-  DB.orders.push(order);
-  DB.cart = [];
-  saveData();
-  updateCartUI();
-  toggleCart();
-  showToast('Order placed successfully! 🎉', 'success');
 }
 
 // ===== TOAST =====
@@ -244,26 +313,33 @@ function toggleMobileNav() {
 }
 
 // ===== INIT =====
-document.addEventListener('DOMContentLoaded', () => {
+// Global initialization promise to prevent race conditions across pages
+window.initPromise = (async () => {
+  await loadCatalog();
+  await hydrateSession();
+})();
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await window.initPromise;
   updateNavAuth();
   const hamburger = document.getElementById('hamburger');
   if (hamburger) hamburger.addEventListener('click', toggleMobileNav);
 });
 
-// ===== LOAD API CAKES =====
-window.cakesLoaded = (async function() {
+async function loadCatalog() {
   try {
-    DB.cakes = await window.API.getProducts();
-    if (typeof fetchCartFromAPI === 'function') await fetchCartFromAPI();
-  } catch (e) {
-    console.error("Failed to load cakes from API:", e);
-    DB.cakes = [];
-    if (typeof showToast === 'function') {
-      showToast("Unable to load cakes. Please try again.", "error");
+    const res = await api.get('/cakes');
+    if (res && Array.isArray(res)) {
+      DB.cakes = res.map(cake => {
+        cake.id = cake._id; // ID compatibility shim
+        return cake;
+      });
+      // Optionally save to pc_cakes for legacy modules
+      localStorage.setItem('pc_cakes', JSON.stringify(DB.cakes));
     }
+  } catch (error) {
+    console.error("Failed to load catalog from API:", error);
+    DB.cakes = [];
+    showToast("Catalog currently unavailable. Please try again later.", "error");
   }
-})();
-
-
-
-
+}

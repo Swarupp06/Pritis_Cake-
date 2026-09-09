@@ -35,8 +35,8 @@
       <div class="forgot-link"><a href="#">Forgot Password?</a></div>
       <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem" onclick="handleLogin()">Login →</button>
       <div class="auth-divider">or</div>
-      <div style="text-align:center;font-size:0.85rem;color:#666">
-        Admin login: <strong>admin@priticake.com</strong> / <strong>admin123</strong>
+      <div style="text-align:center;margin-top:15px">
+        <a href="admin-login.html" style="color:#e91e8c;font-size:0.9rem;font-weight:600;text-decoration:none">🛡️ Admin Portal Login</a>
       </div>
     </div>
 
@@ -75,12 +75,12 @@
 
 <div id="toast" class="toast"></div>
 
+<script src="js/api.js"></script>
 <script src="js/main.js"></script>
 <script>
   // Redirect if already logged in
   document.addEventListener('DOMContentLoaded', () => {
     if (isAdmin()) window.location.href = 'admin-dashboard.html';
-    else if (isLoggedIn()) window.location.href = 'client-dashboard.html';
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('tab') === 'register') switchTab('register');
@@ -97,18 +97,31 @@
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
     if (!email || !password) { showToast('Please fill all fields', 'error'); return; }
+
+    const btn = document.querySelector('#loginForm .btn-primary');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Logging in...';
+
     const result = await login(email, password);
+    
     if (result.success) {
       showToast('Login successful! Redirecting...', 'success');
       setTimeout(() => {
-        window.location.href = result.role === 'admin' ? 'admin-dashboard.html' : 'client-dashboard.html';
+        if (result.role === 'admin') {
+          window.location.href = 'admin-dashboard.html';
+        } else {
+          window.location.href = 'client-dashboard.html';
+        }
       }, 1000);
     } else {
       showToast(result.msg, 'error');
+      btn.disabled = false;
+      btn.innerHTML = originalText;
     }
   }
 
-  function handleRegister() {
+  async function handleRegister() {
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const phone = document.getElementById('regPhone').value.trim();
@@ -117,12 +130,27 @@
     if (!name || !email || !password) { showToast('Please fill all required fields', 'error'); return; }
     if (password !== confirm) { showToast('Passwords do not match', 'error'); return; }
     if (password.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
-    const result = register(name, email, phone, password);
+    
+    const btn = document.querySelector('#registerForm .btn-primary');
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Creating Account...';
+
+    const result = await register(name, email, phone, password);
+    
     if (result.success) {
       showToast('Account created! Redirecting...', 'success');
-      setTimeout(() => window.location.href = 'client-dashboard.html', 1000);
+      setTimeout(() => {
+        if (result.role === 'admin') {
+          window.location.href = 'admin-dashboard.html';
+        } else {
+          window.location.href = 'client-dashboard.html';
+        }
+      }, 1000);
     } else {
       showToast(result.msg, 'error');
+      btn.disabled = false;
+      btn.innerHTML = originalText;
     }
   }
 

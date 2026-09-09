@@ -1,211 +1,104 @@
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_URL = 'http://localhost:5000/api';
 
-window.API = {
-  getToken: function() {
-    // For dev/testing admin JWT, we look for 'pc_jwt_token' in localStorage
-    return localStorage.getItem('pc_jwt_token');
-  },
-  
-  getProducts: async function() {
-    const res = await fetch(`${API_BASE_URL}/products`);
-    if (!res.ok) throw new Error('Failed to fetch products');
-    const data = await res.json();
-    return data.map(this.mapToFrontendProduct);
+const api = {
+  getHeaders: (isMultipart = false) => {
+    const token = localStorage.getItem('pc_token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (!isMultipart) headers['Content-Type'] = 'application/json';
+    return headers;
   },
 
-  getProduct: async function(id) {
-    const res = await fetch(`${API_BASE_URL}/products/${id}`);
-    if (!res.ok) throw new Error('Product not found');
-    const data = await res.json();
-    return this.mapToFrontendProduct(data);
-  },
-
-  createProduct: async function(product) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/products`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(this.mapToBackendProduct(product))
-    });
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to create product');
+  handleResponse: async (response) => {
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      let errMessage = (data && data.message) || 'Something went wrong. Please try again.';
+      if (response.status === 401) {
+        errMessage = data && data.message ? data.message : 'Session expired. Please login again.';
+      } else if (response.status === 403) {
+        errMessage = 'You are not authorized to perform this action.';
+      }
+      
+      const error = new Error(errMessage);
+      error.status = response.status;
+      throw error;
     }
-    const data = await res.json();
-    return this.mapToFrontendProduct(data);
-  },
-
-  updateProduct: async function(id, product) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(this.mapToBackendProduct(product))
-    });
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to update product');
-    }
-    const data = await res.json();
-    return this.mapToFrontendProduct(data);
-  },
-
-  deleteProduct: async function(id) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/products/${id}`, {
-      method: 'DELETE',
-      headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
-    });
-    if (!res.ok) throw new Error('Failed to delete product');
-    return true;
-  },
-
-  // Auth
-  login: async function(email, password) {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ username: email, password: password })
-    });
-    if (!res.ok) throw new Error('Invalid credentials');
-    const data = await res.json();
-    localStorage.setItem('pc_jwt_token', data.access_token);
     return data;
   },
-  
-  getProfile: async function() {
-    const token = this.getToken();
-    if (!token) return null;
-    const res = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  },
 
-  // Cart
-  getCart: async function() {
-    const token = this.getToken();
-    if (!token) return { items: [], total_price: 0 };
-    const res = await fetch(`${API_BASE_URL}/cart`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error('Failed to fetch cart');
-    return await res.json();
-  },
-
-  addToCart: async function(productId, quantity = 1) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/cart/items`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ product_id: productId, quantity })
-    });
-    if (!res.ok) throw new Error('Failed to add to cart');
-    return await res.json();
-  },
-
-  updateCartItem: async function(productId, quantity) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/cart/items/${productId}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ quantity })
-    });
-    if (!res.ok) throw new Error('Failed to update cart item');
-    return await res.json();
-  },
-
-  removeCartItem: async function(productId) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/cart/items/${productId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error('Failed to remove item');
-    return true;
-  },
-
-  // Orders
-  createOrder: async function() {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/orders`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to place order');
+  get: async (endpoint) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'GET',
+        headers: api.getHeaders()
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
     }
-    return await res.json();
   },
 
-  getOrders: async function() {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/orders`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!res.ok) throw new Error('Failed to fetch orders');
-    return await res.json();
-  },
-  
-  updateOrderStatus: async function(orderId, status) {
-    const token = this.getToken();
-    const res = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ status })
-    });
-    if (!res.ok) throw new Error('Failed to update order status');
-    return await res.json();
+  post: async (endpoint, data) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: api.getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
+    }
   },
 
-  // Map backend schema to frontend fields
-  mapToFrontendProduct: function(backendProduct) {
-    return {
-      id: backendProduct.id,
-      name: backendProduct.name,
-      category: backendProduct.category || '',
-      price: backendProduct.price,
-      desc: backendProduct.description || '',
-      weight: backendProduct.weight || '',
-      serves: backendProduct.serves || '',
-      time: backendProduct.prep_time || '',
-      tag: backendProduct.tag || '',
-      image: backendProduct.image_url?.length > 10 ? backendProduct.image_url : null,
-      emoji: backendProduct.image_url?.length <= 10 ? backendProduct.image_url : null,
-      rating: 4.8, // Fallbacks since we didn't add rating to API
-      reviews: 100
-    };
+  postMultipart: async (endpoint, formData) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: api.getHeaders(true),
+        body: formData
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
+    }
   },
 
-  // Map frontend form data to backend schema
-  mapToBackendProduct: function(frontendProduct) {
-    return {
-      name: frontendProduct.name,
-      category: frontendProduct.category,
-      price: parseFloat(frontendProduct.price) || 0,
-      description: frontendProduct.desc,
-      weight: frontendProduct.weight,
-      serves: frontendProduct.serves,
-      prep_time: frontendProduct.time,
-      tag: frontendProduct.tag,
-      image_url: frontendProduct.image || frontendProduct.emoji || ''
-    };
+  put: async (endpoint, data) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'PUT',
+        headers: api.getHeaders(),
+        body: JSON.stringify(data)
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  putMultipart: async (endpoint, formData) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'PUT',
+        headers: api.getHeaders(true),
+        body: formData
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  delete: async (endpoint) => {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'DELETE',
+        headers: api.getHeaders()
+      });
+      return await api.handleResponse(response);
+    } catch (err) {
+      throw err;
+    }
   }
 };
