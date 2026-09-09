@@ -167,6 +167,18 @@ function removeFromCart(cakeId) {
   updateCartUI();
 }
 
+function decreaseQuantity(cakeId) {
+  const existing = DB.cart.find(i => i.cakeId === cakeId);
+  if (existing) {
+    existing.qty -= 1;
+    if (existing.qty <= 0) {
+      DB.cart = DB.cart.filter(i => i.cakeId !== cakeId);
+    }
+    saveData();
+    updateCartUI();
+  }
+}
+
 function getCartTotal() { return DB.cart.reduce((sum, i) => sum + (i.price * i.qty), 0); }
 function getCartCount() { return DB.cart.reduce((sum, i) => sum + i.qty, 0); }
 
@@ -192,10 +204,15 @@ function renderCartItems() {
       <div class="cart-item-img">${item.image ? `<img src="${item.image}" alt="${item.name}">` : item.emoji}</div>
       <div class="cart-item-info">
         <h4>${item.name}</h4>
-        <div class="price">₹${item.price} × ${item.qty}</div>
+        <div class="price" style="display:flex;align-items:center;gap:8px">
+          ₹${item.price} × 
+          <button onclick="decreaseQuantity('${item.cakeId}')" style="background:#eee;border:none;border-radius:4px;padding:2px 6px;cursor:pointer">-</button>
+          <span>${item.qty}</span>
+          <button onclick="addToCart('${item.cakeId}', 1)" style="background:#eee;border:none;border-radius:4px;padding:2px 6px;cursor:pointer">+</button>
+        </div>
         <div style="font-weight:700;color:#e91e8c">₹${item.price * item.qty}</div>
       </div>
-      <button class="cart-item-remove" onclick="removeFromCart(${item.cakeId})">✕</button>
+      <button class="cart-item-remove" onclick="removeFromCart('${item.cakeId}')">×</button>
     </div>
   `).join('');
   const subtotal = getCartTotal();
